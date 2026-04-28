@@ -1,0 +1,65 @@
+'use client';
+import { useEffect, useRef, useCallback } from 'react';
+import { format } from 'date-fns';
+import { useDashboardStore } from '@/lib/store';
+
+export function DataProvider({ children }: { children: React.ReactNode }) {
+  const dateRange = useDashboardStore((s) => s.dateRange);
+  const { setBundle, setError, setLoading } = useDashboardStore();
+  const updateCheckRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const refreshRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fetchData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+
+    const { dateRange: currentRange, lastModified } = useDashboardStore.getState();
+    const [start, end] = currentRange;
+    const params = new URLSearchParams({
+      start: format(start, 'yyyy-MM-dd'),
+      end: format(end, 'yyyy-MM-dd'),
+    });
+
+    try {
+      const res = await fetch(`/api/data?${params.toString()}`, {
+        cache: 'no-store',
+        headers: lastModified ? { 'If-Modified-Since': new Date(lastModified).toUTCString() } : undefined,
+      });
+
+      if (res.status === 304) {
+        if (!silent) setLoading(false);
+        return;
+      }
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const bundle = await res.json();
+      if (bundle.error) throw new Error(bundle.error);
+
+      setBundle(bundle);
+    } catch (e: any) {
+      if (!silent) setError(e?.message || 'Could not load database data');
+    }
+  }, [setBundle, setError, setLoading]);
+
+  useEffect(() => {
+    fetchData(false);
+
+    // Keep the dashboard in sync with the database.
+    updateCheckRef.current = setInterval(() => fetchData(true), 30_000);
+
+    // Hard refresh every 5 minutes to recover from transient failures.
+    refreshRef.current = setInterval(() => fetchData(true), 300_000);
+
+    return () => {
+      if (updateCheckRef.current) clearInterval(updateCheckRef.current);
+      if (refreshRef.current) clearInterval(refreshRef.current);
+    };
+  }, [fetchData, dateRange]);
+
+  return <>{children}</>;
+}
+
+export function ThemeWrapper({ children }: { children: React.ReactNode }) {
+  const theme = useDashboardStore(s => s.theme);
+  useEffect(() => { document.documentElement.setAttribute('data-theme', theme); }, [theme]);
+  return <>{children}</>;
+}
