@@ -141,6 +141,7 @@ async function resolveDateColumn(tableName: string): Promise<string | null> {
   const columns = result.recordset as TableColumn[];
   const normalizedDateTypes = new Set(['date', 'timestamp without time zone', 'timestamp with time zone', 'timestamp']);
   const candidate =
+    columns.find((column) => normKey(column.column_name) === 'proddate') ||
     columns.find((column) => normKey(column.column_name) === 'date') ||
     columns.find((column) => normalizedDateTypes.has(column.data_type.toLowerCase())) ||
     columns.find((column) => normKey(column.column_name).includes('date')) ||
