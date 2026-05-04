@@ -24,7 +24,7 @@ interface Store {
 
 function getDefaultDateRange(): [Date, Date] {
   const now = new Date();
-  return [new Date(now.getFullYear(), now.getMonth(), 1), new Date(now.getFullYear(), now.getMonth() + 1, 0)];
+  return [new Date(now.getFullYear(), now.getMonth()-1, 1), new Date(now.getFullYear(), now.getMonth(), 0)];
 }
 
 export const useDashboardStore = create<Store>((set) => ({
