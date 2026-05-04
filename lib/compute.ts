@@ -164,7 +164,10 @@ function dayVal(b: DataBundle, date: string, plantName: string, unit: EmissionUn
   const prod = b.products
     .filter(r => r.date === date && r.plant === plantName)
     .reduce((s, r) => s + r.qty, 0);
-  const cs = b.cs.find(r => r.date === date)?.qty || 0;
+  // Sum all CS rows for this date in case CS table has multiple entries (per plant or duplicates)
+  const cs = b.cs
+    .filter(r => r.date === date)
+    .reduce((s, r) => s + r.qty, 0);
   const den = unit === 'per_crude_steel' ? cs : prod;
   return co2 > 0 && den > 0 ? Math.round((co2 / den) * 100000) / 100000 : null;
 }
@@ -176,7 +179,10 @@ function dayOverallVal(b: DataBundle, date: string, unit: EmissionUnit, plants: 
   const prod = b.products
     .filter(r => r.date === date && plants.includes(r.plant))
     .reduce((s, r) => s + r.qty, 0);
-  const cs = b.cs.find(r => r.date === date)?.qty || 0;
+  // Sum all CS rows for this date (CS table may have one row per plant or one global row)
+  const cs = b.cs
+    .filter(r => r.date === date)
+    .reduce((s, r) => s + r.qty, 0);
   const den = unit === 'per_crude_steel' ? cs : prod;
   return co2 > 0 && den > 0 ? Math.round((co2 / den) * 100000) / 100000 : null;
 }
