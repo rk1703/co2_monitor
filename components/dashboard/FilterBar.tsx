@@ -3,7 +3,7 @@ import { useRef, useCallback, useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { useDashboardStore } from '@/lib/store';
 import { Plant } from '@/types';
-import { Sun, Moon, Factory, Zap, RefreshCw, ChevronDown } from 'lucide-react';
+import { Sun, Moon, Zap, RefreshCw, ChevronDown } from 'lucide-react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 
@@ -67,15 +67,16 @@ export default function FilterBar() {
 
   return (
     <header className="relative z-20">
-      <div className="glass px-5 py-3 flex flex-wrap items-center gap-x-4 gap-y-3"
+      <div className="glass px-5 py-3 flex flex-wrap items-center gap-x-3 gap-y-3"
         style={{ borderColor: 'var(--border2)' }}>
 
-        {/* Brand */}
+        {/* JSW Logo */}
         <div className="flex items-center gap-2.5 mr-1">
-          <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: 'var(--accent)', boxShadow: '0 0 16px var(--accent-glow)' }}>
-            <Factory size={15} color="#fff" />
-          </div>
+            <img
+              src={theme === 'dark' ? '/JSW_dark.png' : '/JSW_light.png'}
+              alt="JSW logo"
+              className="w-10 h-10 object-contain"
+            />
           <div>
             <div className="font-display font-bold text-sm leading-none" style={{ color: 'var(--text)' }}>CO₂ Monitor</div>
             <div className="text-[10px] mt-0.5" style={{ color: 'var(--text3)' }}>Steel Plant</div>

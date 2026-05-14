@@ -35,7 +35,7 @@ function Content() {
 
   return (
     <div className="flex flex-col gap-5 min-h-full pb-10">
-      <div className="relative lg:sticky lg:top-0 z-30 -mx-4 lg:-mx-6 px-4 lg:px-6 pt-0 pb-3" style={{ background: 'linear-gradient(180deg, var(--bg) 0%, rgba(7,16,31,0.92) 72%, transparent 100%)' }}>
+      <div className="relative lg:sticky lg:top-0 z-30 -mx-4 lg:-mx-6 px-4 lg:px-6 pt-0 pb-3" >
         <ErrorBoundary label="Filter bar error"><FilterBar /></ErrorBoundary>
       </div>
       <ErrorBoundary label="KPI error"><KPICards kpi={kpi} plant={plant} unit={unit} loading={isLoading} /></ErrorBoundary>
