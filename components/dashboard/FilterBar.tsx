@@ -3,7 +3,7 @@ import { useRef, useCallback, useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { useDashboardStore } from '@/lib/store';
 import { Plant } from '@/types';
-import { Sun, Moon, Zap, RefreshCw, ChevronDown } from 'lucide-react';
+import { Sun, Moon, Zap, RefreshCw, ChevronDown, LogOut } from 'lucide-react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 
@@ -54,6 +54,14 @@ export default function FilterBar() {
       setBundle(bundle);
     } catch (e: any) { setError(e?.message); }
   }, [setBundle, setLoading, setError, start, end, lastModified]);
+
+  const logout = useCallback(async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } finally {
+      window.location.href = '/login';
+    }
+  }, []);
 
   const preset = (days: number) => {
     const e = normalizeDate(new Date());
@@ -194,7 +202,7 @@ export default function FilterBar() {
           {isAll && <span className="text-[10px]" style={{ color: 'var(--text4)' }}>locked tCO₂/tCS</span>}
         </div>
 
-        <div className="flex-1" />
+        {/* <div className="flex-1" /> */}
 
         {/* Live data badge */}
         <div className="hidden md:flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-xl"
@@ -221,6 +229,15 @@ export default function FilterBar() {
             ? <Sun size={14} style={{ color: 'var(--yellow)' }} />
             : <Moon size={14} style={{ color: 'var(--accent2)' }} />}
         </button>
+        <div className="relative group">
+          <button onClick={logout}
+            className="w-8 h-8 rounded-xl flex items-center justify-center transition-all hover:scale-105"
+            style={{ background: 'var(--bg3)', border: '1px solid var(--border2)' }}>
+            <LogOut size={14} style={{ color: 'var(--text2)' }} />
+          </button>
+          <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 text-[12px] px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+            style={{ background: 'rgba(0,0,0,0.75)', color: '#fff' }}>LogOut</span>
+        </div>
       </div>
     </header>
   );

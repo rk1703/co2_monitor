@@ -396,14 +396,8 @@ function ElaborateContent() {
 
   return (
     <div className="flex flex-col gap-5 pb-10">
-      {/* <ErrorBoundary label="Filter error"><FilterBar /></ErrorBoundary> */}
       <div
-        className="relative lg:sticky lg:top-0 z-30 -mx-4 lg:-mx-6 px-4 lg:px-6 pt-0 pb-3"
-        style={{
-          background:
-            "linear-gradient(180deg, var(--bg) 0%, rgba(7,16,31,0.92) 72%, transparent 100%)",
-        }}
-      >
+        className="relative lg:sticky lg:top-0 z-30 -mx-4 lg:-mx-6 px-4 lg:px-6 pt-0 pb-3">
         <ErrorBoundary label="Filter error">
           <FilterBar />
         </ErrorBoundary>
