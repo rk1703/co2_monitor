@@ -75,7 +75,7 @@ export default function FilterBar() {
 
   return (
     <header className="relative z-20">
-      <div className="glass px-5 py-3 flex flex-wrap items-center gap-x-3 gap-y-3"
+      <div className="glass px-5 py-3 flex flex-wrap items-center gap-x-3 gap-y-3 justify-between"
         style={{ borderColor: 'var(--border2)' }}>
 
         {/* JSW Logo */}
