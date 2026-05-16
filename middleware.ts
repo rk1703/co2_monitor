@@ -26,7 +26,8 @@ export function middleware(req: NextRequest) {
 
   // Get token from cookies
   const token = req.cookies.get('token')?.value;
-  console.log('[Middleware] Protected route:', pathname, 'Token present:', !!token);
+  const allCookies = req.cookies.getAll ? req.cookies.getAll().map((c: any) => c.name) : [];
+  console.log('[Middleware] Protected route:', pathname, 'Token present:', !!token, 'All cookies:', allCookies);
 
   if (!token) {
     // No token, redirect to login
