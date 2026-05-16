@@ -185,13 +185,13 @@ export function cleanupOldRecords(): void {
   const now = Date.now();
   const maxAge = Math.max(CONFIG.IP_WINDOW_MS, CONFIG.USERNAME_WINDOW_MS);
 
-  for (const [ip, record] of ipAttempts.entries()) {
+  for (const [ip, record] of Array.from(ipAttempts.entries())) {
     if (now - record.lastAttemptTime > maxAge) {
       ipAttempts.delete(ip);
     }
   }
 
-  for (const [username, record] of usernameAttempts.entries()) {
+  for (const [username, record] of Array.from(usernameAttempts.entries())) {
     if (now - record.lastAttemptTime > maxAge) {
       usernameAttempts.delete(username);
     }
