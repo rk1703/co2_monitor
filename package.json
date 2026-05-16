@@ -20,13 +20,12 @@
     "recharts": "^2.12.7",
     "tailwind-merge": "^2.4.0",
     "zustand": "^4.5.4",
-    "ldapjs": "^2.0.0",
+    "ldapts": "^4.2.0",
     "jsonwebtoken": "^9.0.0"
   },
   
   "devDependencies": {
     "@types/jsonwebtoken": "^9.0.0",
-    "@types/ldapjs": "^1.0.0",
     "@types/mssql": "^12.3.0",
     "@types/node": "^20",
     "@types/react": "^18",

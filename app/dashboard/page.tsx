@@ -28,7 +28,7 @@ function Content() {
         <div className="text-4xl mb-3">⚠️</div>
         <div className="font-display font-semibold text-sm mb-1" style={{ color: 'var(--red)' }}>Could not load data</div>
         <div className="text-xs max-w-xs" style={{ color: 'var(--text3)' }}>{error}</div>
-        <div className="text-xs mt-2" style={{ color: 'var(--text4)' }}>Check the SQL Server connection details in .env.local and table names in your env vars</div>
+        <div className="text mt-2" style={{ color: 'var(--text2)' }}>Make sure you are connected to the JSW Intranet</div>
       </div>
     </div>
   );
