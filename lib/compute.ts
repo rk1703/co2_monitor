@@ -211,7 +211,7 @@ export function computeStackedTimeline(b: DataBundle, start: Date, end: Date, pl
   });
 }
 
-export interface ScatterPoint { x: number; y: number; plant: string; date: string; }
+export interface ScatterPoint { x: number; y: number; z: number; plant: string; date: string; }
 export function computeScatterData(b: DataBundle, start: Date, end: Date): ScatterPoint[] {
   const plants = Array.from(new Set([...b.emissions.map(r => r.plant), ...b.products.map(r => r.plant)]))
     .filter(p => p && p !== 'All Plants');
@@ -221,7 +221,7 @@ export function computeScatterData(b: DataBundle, start: Date, end: Date): Scatt
     return plants.flatMap(plant => {
       const co2  = b.emissions.filter(r => r.date === d && r.plant === plant).reduce((s, r) => s + r.absoluteCO2, 0);
       const prod = b.products.find(r => r.date === d && r.plant === plant)?.qty || 0;
-      return prod > 0 && co2 > 0 ? [{ x: Math.round(prod), y: Math.round((co2/prod)*100000)/100000, plant, date: d }] : [];
+      return prod > 0 && co2 > 0 ? [{ x: Math.round(prod), y: Math.round((co2/prod)*100000)/100000, z: Math.round(co2), plant, date: d }] : [];
     });
   });
 }

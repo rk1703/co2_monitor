@@ -96,22 +96,28 @@ function parseTimestamp(value: unknown): number | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed.getTime();
 }
 
-function deriveLastModified(rows: Array<Record<string, unknown>>[]): string {
-  const timestampKeys = ['updatedAt', 'modifiedAt', 'lastModified', 'lastUpdated', 'updated', 'modified', 'createdAt', 'timestamp'];
-  let latest = 0;
-
-  rows.flat().forEach((row) => {
-    const normalized = normaliseRow(row);
-    timestampKeys.forEach((key) => {
-      const timestamp = parseTimestamp(normalized[normKey(key)]);
-      if (timestamp && timestamp > latest) {
-        latest = timestamp;
-      }
-    });
-  });
-
-  return new Date(latest || Date.now()).toISOString();
+export async function getDbLastModified(): Promise<Date> {
+  const pool = await getPool();
+  const query = `
+    SELECT (
+      SELECT MAX(val)
+      FROM (VALUES 
+        ((SELECT MAX(INSERT_DATE) FROM ${quoteQualifiedName(TABLE_SCHEMA)}.${quoteIdentifier(EMISSION_TABLE)})),
+        ((SELECT MAX(INSERT_DATE) FROM ${quoteQualifiedName(TABLE_SCHEMA)}.${quoteIdentifier(PRODUCT_TABLE)})),
+        ((SELECT MAX(INSERT_DATE) FROM ${quoteQualifiedName(TABLE_SCHEMA)}.${quoteIdentifier(CS_TABLE)}))
+      ) AS col(val)
+    ) AS last_modified;
+  `;
+  try {
+    const result = await pool.request().query(query);
+    const dateVal = result.recordset[0]?.last_modified;
+    return dateVal ? new Date(dateVal) : new Date();
+  } catch (e) {
+    console.error('Failed to query last modified timestamp:', e);
+    return new Date();
+  }
 }
+
 
 function isDateRangeValue(value: string | null | undefined): value is string {
   return !!value && /^\d{4}-\d{2}-\d{2}$/.test(value);
@@ -171,7 +177,7 @@ async function readTable(
         const result = await request.query(
           `SELECT *
            FROM ${quoteQualifiedName(TABLE_SCHEMA)}.${quoteIdentifier(tableName)}
-           WHERE CAST(${quoteIdentifier(dateColumn)} AS date) BETWEEN CONVERT(date, @start) AND CONVERT(date, @end)
+           WHERE ${quoteIdentifier(dateColumn)} >= CONVERT(date, @start) AND ${quoteIdentifier(dateColumn)} <= CONVERT(date, @end)
            ORDER BY ${quoteIdentifier(dateColumn)} ASC`,
         );
 
@@ -193,10 +199,11 @@ async function readTable(
 export async function parseSqlServerBundle(start?: string, end?: string): Promise<DataBundle> {
   const dateRange = isDateRangeValue(start) && isDateRangeValue(end) ? { start, end } : undefined;
 
-  const [emissionRows, productRows, csRows] = await Promise.all([
+  const [emissionRows, productRows, csRows, dbLastModified] = await Promise.all([
     readTable(EMISSION_TABLE, dateRange),
     readTable(PRODUCT_TABLE, dateRange),
     readTable(CS_TABLE, dateRange),
+    getDbLastModified(),
   ]);
 
   const emissions: EmissionRow[] = emissionRows
@@ -243,6 +250,6 @@ export async function parseSqlServerBundle(start?: string, end?: string): Promis
     emissions,
     products,
     cs,
-    lastModified: deriveLastModified([emissionRows, productRows, csRows]),
+    lastModified: dbLastModified.toISOString(),
   };
 }

@@ -8,6 +8,11 @@ type EnvConnectionDetails = {
   port: number;
 };
 
+// Extend the global object type for TypeScript
+declare global {
+  var mssqlPool: sql.ConnectionPool | null | undefined;
+}
+
 let pool: sql.ConnectionPool | null = null;
 let configCache: sql.config | null = null;
 
@@ -69,18 +74,35 @@ function getConnectionConfig(): sql.config {
 }
 
 export async function getPool(): Promise<sql.ConnectionPool> {
-  if (!pool) {
-    pool = new sql.ConnectionPool(getConnectionConfig());
-    pool.on('error', () => {
-      pool = null;
-    });
-  }
+  const config = getConnectionConfig();
 
-  if (!pool.connected) {
-    await pool.connect();
-  }
+  if (process.env.NODE_ENV === 'production') {
+    if (!pool) {
+      pool = new sql.ConnectionPool(config);
+      pool.on('error', () => {
+        pool = null;
+      });
+    }
 
-  return pool;
+    if (!pool.connected) {
+      await pool.connect();
+    }
+
+    return pool;
+  } else {
+    if (!globalThis.mssqlPool) {
+      globalThis.mssqlPool = new sql.ConnectionPool(config);
+      globalThis.mssqlPool.on('error', () => {
+        globalThis.mssqlPool = null;
+      });
+    }
+
+    if (!globalThis.mssqlPool.connected) {
+      await globalThis.mssqlPool.connect();
+    }
+
+    return globalThis.mssqlPool;
+  }
 }
 
 export function quoteIdentifier(identifier: string): string {

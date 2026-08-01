@@ -1,6 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { Client } from 'ldapts';
 import jwt from 'jsonwebtoken';
+import fs from 'fs';
 import { 
   getClientIP, 
   isIPRateLimited, 
@@ -12,6 +13,11 @@ import {
 type LoginBody = { username?: string; password?: string };
 
 const isDev = process.env.NODE_ENV !== 'production';
+
+const JWT_SECRET = process.env.JWT_SECRET as string;
+if (!process.env.JWT_SECRET) {
+  throw new Error('CRITICAL CONFIGURATION ERROR: JWT_SECRET environment variable is missing.');
+}
 
 /**
  * Search for user DN by username
@@ -58,12 +64,12 @@ export async function POST(req: NextRequest) {
   }
 
   // Check rate limiting and account lockout
-  if (isIPRateLimited(clientIP)) {
+  if (await isIPRateLimited(clientIP)) {
     console.warn('[LOGIN] IP rate limited:', clientIP);
     return NextResponse.json({ error: 'Too many attempts. Please try again later.' }, { status: 429 });
   }
 
-  if (isUsernameLocked(username)) {
+  if (await isUsernameLocked(username)) {
     console.warn('[LOGIN] Username locked:', username);
     return NextResponse.json({ error: 'Invalid credentials or authentication service unavailable' }, { status: 401 });
   }
@@ -73,7 +79,6 @@ export async function POST(req: NextRequest) {
   const LDAP_BIND_PW = process.env.LDAP_BIND_PW;
   const LDAP_BASE_DN = process.env.LDAP_BASE_DN || '';
   const LDAP_DOMAIN = process.env.LDAP_DOMAIN || '';
-  const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 
   console.log('[LOGIN] LDAP config:', { 
     LDAP_URL, 
@@ -94,13 +99,24 @@ export async function POST(req: NextRequest) {
    */
   const attemptAuth = async (url: string): Promise<void> => {
     console.log('[LOGIN] Attempting auth with URL:', url);
+
+    const tlsOptions: any = {
+      rejectUnauthorized: process.env.LDAP_REJECT_UNAUTHORIZED !== 'false',
+    };
+
+    if (process.env.LDAP_CA_CERT_PATH) {
+      try {
+        tlsOptions.ca = fs.readFileSync(process.env.LDAP_CA_CERT_PATH);
+      } catch (err) {
+        console.error('[LOGIN] Failed to read LDAP CA cert file:', err);
+      }
+    } else if (process.env.LDAP_CA_CERT_CONTENT) {
+      tlsOptions.ca = process.env.LDAP_CA_CERT_CONTENT;
+    }
+
     const client = new Client({
       url,
-      tlsOptions: {
-        // For internal LDAP servers with self-signed certs, disable strict verification
-        // In production, consider using Node's --use-system-ca flag or importing the CA
-        rejectUnauthorized: false,
-      },
+      tlsOptions,
     });
 
     try {
@@ -120,9 +136,7 @@ export async function POST(req: NextRequest) {
         
         const userClient = new Client({
           url,
-          tlsOptions: {
-            rejectUnauthorized: false,
-          },
+          tlsOptions,
         });
 
         await userClient.bind('', '');
@@ -138,9 +152,7 @@ export async function POST(req: NextRequest) {
         
         const userClient = new Client({
           url,
-          tlsOptions: {
-            rejectUnauthorized: false,
-          },
+          tlsOptions,
         });
 
         console.log('[LOGIN] Connecting to LDAP with anonymous bind...');
@@ -188,7 +200,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Success - clear failed attempts and issue JWT
-    clearFailedAttempts(clientIP, username);
+    await clearFailedAttempts(clientIP, username);
     
     const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '8h' });
     // Only set secure flag if actually using HTTPS
@@ -210,7 +222,7 @@ export async function POST(req: NextRequest) {
     return response;
   } catch (e: any) {
     // Record failed attempt
-    recordFailedAttempt(clientIP, username);
+    await recordFailedAttempt(clientIP, username);
     
     console.error('[LOGIN] Authentication error:', e?.message || e);
     if (e?.code) console.error('[LOGIN] Error code:', e.code);

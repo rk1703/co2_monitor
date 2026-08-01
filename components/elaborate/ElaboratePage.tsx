@@ -12,6 +12,7 @@ import {
   Scatter,
   XAxis,
   YAxis,
+  ZAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
@@ -41,7 +42,9 @@ import {
   Activity,
   TrendingDown,
   GitCompare,
+  Sliders,
 } from "lucide-react";
+import { format } from "date-fns";
 
 // ── Shared palette ─────────────────────────────────────────────────────────────
 const STACKED_CATS = [
@@ -265,6 +268,12 @@ function ScatterTip({ active, payload }: any) {
           {d?.y?.toFixed(5)} tCO₂/tP
         </span>
       </div>
+      <div style={{ color: "var(--text3)" }}>
+        Absolute Emissions:{" "}
+        <span className="font-bold" style={{ color: "var(--purple)" }}>
+          {fmt(d?.z, 0)} tCO₂
+        </span>
+      </div>
     </div>
   );
 }
@@ -283,6 +292,118 @@ function ElaborateContent() {
     () => (ok ? computeScatterData(bundle!, start, end) : []),
     [bundle, start, end, ok],
   );
+
+  const [scrapRatio, setScrapRatio] = useState(0); // 0 to 30 %
+  const [altFuelRatio, setAltFuelRatio] = useState(0); // 0 to 50 %
+  const [renewSourcing, setRenewSourcing] = useState(0); // 0 to 100 %
+
+  const baselineKPI = useMemo(() => {
+    return ok ? computeKPI(bundle!, start, end, plant) : null;
+  }, [bundle, start, end, plant, ok]);
+
+  const simulatedKPI = useMemo(() => {
+    if (!ok || !baselineKPI) return null;
+
+    const startStr = format(start, "yyyy-MM-dd");
+    const endStr = format(end, "yyyy-MM-dd");
+
+    // Filter emissions in date range and plant
+    const filteredEmissions = bundle!.emissions.filter(
+      (r) => r.date >= startStr && r.date <= endStr && (plant === "All Plants" || r.plant === plant)
+    );
+
+    // Group baseline absolute emissions by category
+    let cbrmBase = 0;
+    let powerBase = 0;
+    let otherBase = 0;
+    
+    filteredEmissions.forEach(r => {
+      if (r.category === 'CBRM') {
+        cbrmBase += r.absoluteCO2;
+      } else if (r.category === 'POWER') {
+        powerBase += r.absoluteCO2;
+      } else {
+        otherBase += r.absoluteCO2;
+      }
+    });
+
+    // Apply Alternative Fuel Injection to CBRM
+    const cbrmSim = cbrmBase * (1 - (altFuelRatio * 0.005));
+
+    // Apply Renewable grid power sourcing to POWER
+    const powerSim = powerBase * (1 - (renewSourcing * 0.01));
+
+    // Apply Scrap Charging ratio to everything
+    const totalBeforeScrap = cbrmSim + powerSim + otherBase;
+    const simulatedNetCO2 = totalBeforeScrap * (1 - (scrapRatio * 0.008));
+    
+    // Recalculate intensities
+    const totalCS = baselineKPI.totalCS;
+    const totalProduct = baselineKPI.totalProduct;
+
+    const simulatedIntensityCS = totalCS > 0 ? simulatedNetCO2 / totalCS : 0;
+    const simulatedIntensityProduct = totalProduct > 0 ? simulatedNetCO2 / totalProduct : 0;
+
+    return {
+      netCO2: Math.round(simulatedNetCO2),
+      intensityCS: Math.round(simulatedIntensityCS * 100000) / 100000,
+      intensityProduct: Math.round(simulatedIntensityProduct * 100000) / 100000,
+    };
+  }, [bundle, start, end, plant, ok, baselineKPI, scrapRatio, altFuelRatio, renewSourcing]);
+
+  // Scatter By Plant Grouping
+  const scatterByPlant = useMemo(() => {
+    const groups: Record<string, any[]> = {};
+    scatter.forEach((p) => {
+      if (!groups[p.plant]) groups[p.plant] = [];
+      groups[p.plant].push(p);
+    });
+    return Object.entries(groups).map(([name, data]) => ({ name, data }));
+  }, [scatter]);
+
+  // Linear Regression Trendline
+  const regressionLine = useMemo(() => {
+    if (scatter.length < 2) return [];
+
+    const nVal = scatter.length;
+    let sumX = 0;
+    let sumY = 0;
+    let sumXY = 0;
+    let sumXX = 0;
+
+    scatter.forEach((p) => {
+      sumX += p.x;
+      sumY += p.y;
+      sumXY += p.x * p.y;
+      sumXX += p.x * p.x;
+    });
+
+    const denominator = nVal * sumXX - sumX * sumX;
+    if (denominator === 0) return [];
+
+    const m = (nVal * sumXY - sumX * sumY) / denominator;
+    const c = (sumY - m * sumX) / nVal;
+
+    const xValues = scatter.map((p) => p.x);
+    const minX = Math.min(...xValues);
+    const maxX = Math.max(...xValues);
+
+    return [
+      { x: minX, y: m * minX + c },
+      { x: maxX, y: m * maxX + c },
+    ];
+  }, [scatter]);
+
+  // Scatter Average Stats
+  const scatterStats = useMemo(() => {
+    if (scatter.length === 0) return { meanX: 0, meanY: 0 };
+    const sumX = scatter.reduce((s, p) => s + p.x, 0);
+    const sumY = scatter.reduce((s, p) => s + p.y, 0);
+    return {
+      meanX: Math.round(sumX / scatter.length),
+      meanY: Math.round((sumY / scatter.length) * 100000) / 100000,
+    };
+  }, [scatter]);
   const catTL = useMemo(
     () => (ok ? computeCategoryTimeline(bundle!, start, end, plant) : []),
     [bundle, start, end, plant, ok],
@@ -711,24 +832,115 @@ function ElaborateContent() {
         </Card>
       </div>
 
-      {/* 4. Scatter
-      <Section n="4" title="Production Volume vs. Emission Intensity — Scatter" />
-      <Card title="Hot Metal Output (t/day) vs tCO₂/tP — BF1 & BF2" badge="Correlation" icon={GitCompare}
-        description="Each dot = one plant-day. Downward-right trend = higher production with lower intensity (better efficiency)." delay={120}>
-        {isLoading ? <ChartSkeleton height={300} /> : (
-          <ResponsiveContainer width="100%" height={300}>
-            <ScatterChart margin={{ top: 8, right: 24, left: -12, bottom: 24 }}>
+      {/* 4. Enhanced Scatter */}
+      <Section n="4" title="Production Volume vs. Emission Intensity — Scatter Bubble Chart" />
+      <Card
+        title="Hot Metal Output (t/day) vs tCO₂/tP"
+        badge="Bubble Size = Daily Emission Vol (t)"
+        icon={GitCompare}
+        description="Each bubble = one plant-day. Dot size represents absolute daily emissions. Quadrants divided by mean production and intensity."
+        delay={120}
+      >
+        {isLoading ? (
+          <ChartSkeleton height={380} />
+        ) : (
+          <ResponsiveContainer width="100%" height={380}>
+            <ScatterChart margin={{ top: 12, right: 36, left: -10, bottom: 24 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--grid)" />
-              <XAxis dataKey="x" name="Hot Metal (t)" tick={{ fill: 'var(--text3)', fontSize: 10 }} axisLine={false} tickLine={false} label={{ value: 'Hot Metal (t/day)', position: 'insideBottom', fill: 'var(--text3)', fontSize: 10, offset: -12 }} />
-              <YAxis dataKey="y" name="tCO₂/tP" tick={{ fill: 'var(--text3)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => v.toFixed(3)} label={{ value: 'tCO₂/tP', angle: -90, position: 'insideLeft', fill: 'var(--text3)', fontSize: 10 }} />
-              <Tooltip content={<ScatterTip />} cursor={{ strokeDasharray: '3 3' }} />
+              <XAxis
+                type="number"
+                dataKey="x"
+                name="Hot Metal"
+                tick={{ fill: "var(--text3)", fontSize: 10 }}
+                axisLine={false}
+                tickLine={false}
+                label={{
+                  value: "Hot Metal Output (t/day)",
+                  position: "insideBottom",
+                  fill: "var(--text3)",
+                  fontSize: 10,
+                  offset: -12,
+                }}
+                domain={["auto", "auto"]}
+              />
+              <YAxis
+                type="number"
+                dataKey="y"
+                name="Intensity"
+                tick={{ fill: "var(--text3)", fontSize: 10 }}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={(v) => v.toFixed(3)}
+                label={{
+                  value: "tCO₂/tP",
+                  angle: -90,
+                  position: "insideLeft",
+                  fill: "var(--text3)",
+                  fontSize: 10,
+                  offset: 8,
+                }}
+                domain={["auto", "auto"]}
+              />
+              <ZAxis
+                type="number"
+                dataKey="z"
+                range={[30, 300]}
+                name="Absolute CO₂"
+                unit=" t"
+              />
+              <Tooltip
+                content={<ScatterTip />}
+                cursor={{ strokeDasharray: "3 3" }}
+              />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Scatter name="BF1" data={bf1Sc} fill="#f97316" opacity={0.7} r={3} />
-              <Scatter name="BF2" data={bf2Sc} fill="#60a5fa" opacity={0.7} r={3} />
+              {scatterByPlant.map(({ name, data }, idx) => (
+                <Scatter
+                  key={name}
+                  name={name}
+                  data={data}
+                  fill={SUBCAT_C[idx % SUBCAT_C.length]}
+                  opacity={0.75}
+                />
+              ))}
+              {regressionLine.length === 2 && (
+                <Scatter
+                  name="Regression Line"
+                  data={regressionLine}
+                  line={{ stroke: "var(--text3)", strokeWidth: 1.5, strokeDasharray: "5 5" }}
+                  shape={() => <circle r={0} />}
+                  legendType="none"
+                />
+              )}
+              {scatterStats.meanX > 0 && (
+                <ReferenceLine
+                  x={scatterStats.meanX}
+                  stroke="var(--border3)"
+                  strokeDasharray="3 3"
+                  label={{
+                    value: `Mean: ${scatterStats.meanX} t`,
+                    fill: "var(--text2)",
+                    position: "top",
+                    fontSize: 9,
+                  }}
+                />
+              )}
+              {scatterStats.meanY > 0 && (
+                <ReferenceLine
+                  y={scatterStats.meanY}
+                  stroke="var(--border3)"
+                  strokeDasharray="3 3"
+                  label={{
+                    value: `Mean: ${scatterStats.meanY.toFixed(3)}`,
+                    fill: "var(--text2)",
+                    position: "right",
+                    fontSize: 9,
+                  }}
+                />
+              )}
             </ScatterChart>
           </ResponsiveContainer>
         )}
-      </Card> */}
+      </Card>
 
       {/* 5. Plant vs Plant */}
       <Section n="5" title="Plant vs Plant — Daily Intensity Comparison" />
@@ -993,6 +1205,181 @@ function ElaborateContent() {
               />
             </AreaChart>
           </ResponsiveContainer>
+        )}
+      </Card>
+
+      {/* 8. Decarbonization What-If Simulator */}
+      <Section n="8" title="ESG Decarbonization Simulator & Shadow Carbon Price Tracker" />
+      <Card
+        title="What-If Decarbonization Scenario Simulator"
+        icon={Sliders}
+        badge="ESG Sandbox"
+        description="Simulate the impact of plant modernization levers on absolute footprint, Scope 1/2 intensities, and shadow pricing liabilities."
+        delay={200}
+      >
+        {isLoading || !baselineKPI || !simulatedKPI ? (
+          <ChartSkeleton height={350} />
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mt-2">
+            {/* Left Controls */}
+            <div className="lg:col-span-2 flex flex-col gap-5 p-4 rounded-xl" style={{ background: 'var(--card2)', border: '1px solid var(--border2)' }}>
+              <div className="flex items-center gap-2 mb-1">
+                <Sliders size={16} style={{ color: 'var(--accent)' }} />
+                <span className="font-display font-bold text-xs uppercase tracking-wider" style={{ color: 'var(--text2)' }}>Modernization Levers</span>
+              </div>
+
+              {/* Slider 1: Scrap Charging */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between text-xs">
+                  <span className="font-medium" style={{ color: 'var(--text)' }}>Scrap Charging Increase</span>
+                  <span className="font-semibold text-accent font-display">+{scrapRatio}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="30"
+                  value={scrapRatio}
+                  onChange={(e) => setScrapRatio(Number(e.target.value))}
+                  className="w-full h-1.5 rounded-lg appearance-none cursor-pointer bg-neutral-800 accent-accent"
+                  style={{ background: 'var(--bg3)' }}
+                />
+                <span className="text-[10px]" style={{ color: 'var(--text3)' }}>Replaces crude ore with scrap. Cuts absolute emissions by 0.8% for every 1%.</span>
+              </div>
+
+              {/* Slider 2: H2 Fuel Injection */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between text-xs">
+                  <span className="font-medium" style={{ color: 'var(--text)' }}>Alternative Fuel Injection (PCI/H₂)</span>
+                  <span className="font-semibold text-accent font-display">{altFuelRatio}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="50"
+                  value={altFuelRatio}
+                  onChange={(e) => setAltFuelRatio(Number(e.target.value))}
+                  className="w-full h-1.5 rounded-lg appearance-none cursor-pointer bg-neutral-800 accent-accent"
+                  style={{ background: 'var(--bg3)' }}
+                />
+                <span className="text-[10px]" style={{ color: 'var(--text3)' }}>Substitutes metallurgical coke. Cuts coal-related emissions by 0.5% for every 1%.</span>
+              </div>
+
+              {/* Slider 3: Renewable Electricity */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between text-xs">
+                  <span className="font-medium" style={{ color: 'var(--text)' }}>Renewable Grid Power Sourcing</span>
+                  <span className="font-semibold text-accent font-display">{renewSourcing}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={renewSourcing}
+                  onChange={(e) => setRenewSourcing(Number(e.target.value))}
+                  className="w-full h-1.5 rounded-lg appearance-none cursor-pointer bg-neutral-800 accent-accent"
+                  style={{ background: 'var(--bg3)' }}
+                />
+                <span className="text-[10px]" style={{ color: 'var(--text3)' }}>Displaces coal-fired power purchases. Reduces Scope 2 emissions by 1.0% for every 1%.</span>
+              </div>
+              
+              <button 
+                onClick={() => { setScrapRatio(0); setAltFuelRatio(0); setRenewSourcing(0); }}
+                className="mt-2 text-center text-xs py-2 rounded-xl border border-dashed transition-all hover:bg-neutral-800 hover:border-solid cursor-pointer"
+                style={{ borderColor: 'var(--border2)', color: 'var(--text2)' }}
+              >
+                Reset Levers to Baseline
+              </button>
+            </div>
+
+            {/* Right Comparison Results */}
+            <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Box 1: Absolute Emissions */}
+              <div className="flex flex-col justify-between p-4 rounded-xl border" style={{ background: 'var(--card2)', borderColor: 'var(--border)' }}>
+                <div>
+                  <span className="text-xs" style={{ color: 'var(--text3)' }}>Total Net CO₂ Footprint</span>
+                  <div className="flex items-baseline gap-2 mt-1.5">
+                    <span className="text-2xl font-bold font-display" style={{ color: 'var(--text)' }}>{fmt(simulatedKPI.netCO2, 0)}</span>
+                    <span className="text-xs" style={{ color: 'var(--text2)' }}>tCO₂</span>
+                  </div>
+                </div>
+                <div className="mt-3 flex items-center justify-between border-t pt-2.5" style={{ borderColor: 'var(--border)' }}>
+                  <span className="text-[11px]" style={{ color: 'var(--text3)' }}>Baseline: {fmt(baselineKPI.netCO2, 0)} t</span>
+                  {baselineKPI.netCO2 > simulatedKPI.netCO2 ? (
+                    <span className="text-[11px] font-semibold font-display px-2 py-0.5 rounded text-emerald-500 bg-emerald-500/10">
+                      -{Math.round(((baselineKPI.netCO2 - simulatedKPI.netCO2) / baselineKPI.netCO2) * 100)}% Red.
+                    </span>
+                  ) : (
+                    <span className="text-[11px] font-semibold text-neutral-400 font-display">No Change</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Box 2: Emission Intensity */}
+              <div className="flex flex-col justify-between p-4 rounded-xl border" style={{ background: 'var(--card2)', borderColor: 'var(--border)' }}>
+                <div>
+                  <span className="text-xs" style={{ color: 'var(--text3)' }}>Decarbonization Intensity</span>
+                  <div className="flex items-baseline gap-2 mt-1.5">
+                    <span className="text-2xl font-bold font-display" style={{ color: 'var(--text)' }}>{unit === 'per_crude_steel' ? simulatedKPI.intensityCS.toFixed(3) : simulatedKPI.intensityProduct.toFixed(3)}</span>
+                    <span className="text-xs" style={{ color: 'var(--text2)' }}>{uLabel}</span>
+                  </div>
+                </div>
+                <div className="mt-3 flex items-center justify-between border-t pt-2.5" style={{ borderColor: 'var(--border)' }}>
+                  <span className="text-[11px]" style={{ color: 'var(--text3)' }}>Baseline: {unit === 'per_crude_steel' ? baselineKPI.co2PerCS.toFixed(3) : baselineKPI.co2PerProduct.toFixed(3)}</span>
+                  {unit === 'per_crude_steel' ? (
+                    simulatedKPI.intensityCS < 1.8 ? (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded text-emerald-400 bg-emerald-500/10 uppercase tracking-wider">Target Achieved</span>
+                    ) : (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded text-amber-500 bg-amber-500/10 uppercase tracking-wider">+{ (simulatedKPI.intensityCS - 1.8).toFixed(2) } to SBTi</span>
+                    )
+                  ) : (
+                    <span className="text-[10px] text-neutral-500 italic">SBTi applies to tCS</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Box 3: Carbon Pricing Liability */}
+              <div className="flex flex-col justify-between p-4 rounded-xl border" style={{ background: 'var(--card2)', borderColor: 'var(--border)' }}>
+                <div>
+                  <span className="text-xs" style={{ color: 'var(--text3)' }}>Shadow Carbon Price Liability</span>
+                  <div className="flex items-baseline gap-1.5 mt-1.5">
+                    <span className="text-xs" style={{ color: 'var(--text3)' }}>₹</span>
+                    <span className="text-2xl font-bold font-display text-amber-500">{fmt(simulatedKPI.netCO2 * 2500, 0)}</span>
+                  </div>
+                </div>
+                <div className="mt-3 flex items-center justify-between border-t pt-2.5" style={{ borderColor: 'var(--border)' }}>
+                  <span className="text-[11px]" style={{ color: 'var(--text3)' }}>Price base: ₹2,500/tCO₂</span>
+                  {baselineKPI.netCO2 > simulatedKPI.netCO2 ? (
+                    <span className="text-[11px] font-semibold text-emerald-400">Saved: ₹{fmt((baselineKPI.netCO2 - simulatedKPI.netCO2) * 2500, 0)}</span>
+                  ) : (
+                    <span className="text-[11px]" style={{ color: 'var(--text3)' }}>No savings</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Box 4: SBTi Target Decarbonization Path */}
+              <div className="flex flex-col justify-between p-4 rounded-xl border" style={{ background: 'var(--card2)', borderColor: 'var(--border)' }}>
+                <div>
+                  <span className="text-xs" style={{ color: 'var(--text3)' }}>Decarbonization Target Compliance</span>
+                  <div className="flex items-center gap-2 mt-2">
+                    {unit === 'per_crude_steel' && simulatedKPI.intensityCS < 1.8 ? (
+                      <div className="flex items-center gap-2 text-emerald-400">
+                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                        <span className="font-semibold text-xs">SBTi Compliant (&lt; 1.8 t/t)</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-rose-500">
+                        <div className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                        <span className="font-semibold text-xs">Non-compliant (Target 1.8)</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="mt-3 text-[10px]" style={{ color: 'var(--text3)' }}>
+                  *Aligns with Science-Based Targets Initiative (SBTi) 1.5°C trajectory for iron and steel sector.
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </Card>
     </div>

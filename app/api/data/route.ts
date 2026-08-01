@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { parseSqlServerBundle } from '@/lib/parser';
+import { parseSqlServerBundle, getDbLastModified } from '@/lib/parser';
 import { DataBundle } from '@/types';
 
 // Never cache — always read fresh from SQL Server
@@ -23,13 +23,6 @@ function isDateRangeValue(value: string | null): value is string {
   return !!value && /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
-function getLastModifiedHeader(bundle: DataBundle): string | null {
-  if (!bundle.lastModified) return null;
-  const ts = new Date(bundle.lastModified).getTime();
-  if (Number.isNaN(ts)) return null;
-  return new Date(ts).toUTCString();
-}
-
 function getCachedBundle(cacheKey: string): DataBundle | null {
   const entry = cache.get(cacheKey);
   if (!entry) return null;
@@ -48,6 +41,26 @@ export async function GET(req: Request) {
     const end = isDateRangeValue(url.searchParams.get('end')) ? url.searchParams.get('end') : null;
     const cacheKey = buildCacheKey(start, end);
 
+    const ifModifiedSince = req.headers.get('if-modified-since');
+    let dbLastModified: Date | null = null;
+
+    if (ifModifiedSince) {
+      dbLastModified = await getDbLastModified();
+      const clientTs = new Date(ifModifiedSince).getTime();
+      const serverTs = dbLastModified.getTime();
+
+      if (!Number.isNaN(clientTs) && !Number.isNaN(serverTs) && clientTs >= serverTs) {
+        console.log('[/api/data] Fast-path Cache Hit! Returning 304 Not Modified.');
+        return new NextResponse(null, {
+          status: 304,
+          headers: {
+            'Cache-Control': 'no-cache, must-revalidate',
+            'Last-Modified': dbLastModified.toUTCString(),
+          },
+        });
+      }
+    }
+
     const cachedBundle = getCachedBundle(cacheKey);
     const bundle = cachedBundle ?? await parseSqlServerBundle(start ?? undefined, end ?? undefined);
 
@@ -58,28 +71,15 @@ export async function GET(req: Request) {
       });
     }
 
-    const lastModified = getLastModifiedHeader(bundle);
-    const ifModifiedSince = req.headers.get('if-modified-since');
-
-    if (ifModifiedSince && lastModified) {
-      const clientTs = new Date(ifModifiedSince).getTime();
-      const serverTs = new Date(lastModified).getTime();
-
-      if (!Number.isNaN(clientTs) && !Number.isNaN(serverTs) && clientTs >= serverTs) {
-        return new NextResponse(null, {
-          status: 304,
-          headers: {
-            'Cache-Control': 'no-cache, must-revalidate',
-            'Last-Modified': lastModified,
-          },
-        });
-      }
+    if (!dbLastModified) {
+      dbLastModified = new Date(bundle.lastModified || Date.now());
     }
+    const lastModifiedHeader = dbLastModified.toUTCString();
 
     return NextResponse.json(bundle, {
       headers: {
         'Cache-Control': 'no-cache, must-revalidate',
-        ...(lastModified ? { 'Last-Modified': lastModified } : {}),
+        'Last-Modified': lastModifiedHeader,
       },
     });
   } catch (err: any) {
