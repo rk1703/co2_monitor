@@ -4,74 +4,80 @@
 
 /* ── Dark theme ──────────────────────────────────── */
 :root {
-  --bg:     #07101f;
-  --bg2:    #0b1829;
-  --bg3:    #0f2038;
-  --card:   #0c1a2e;
-  --card2:  #102036;
-  --card3:  #152844;
+  --bg: #07101f;
+  --bg2: #0b1829;
+  --bg3: #0f2038;
+  --card: #0c1a2e;
+  --card2: #102036;
+  --card3: #152844;
 
-  --border:  rgba(255,255,255,0.055);
-  --border2: rgba(255,255,255,0.11);
-  --border3: rgba(255,255,255,0.18);
+  --border: rgba(255, 255, 255, 0.055);
+  --border2: rgba(255, 255, 255, 0.11);
+  --border3: rgba(255, 255, 255, 0.18);
 
-  --text:  #e8f0fb;
-  --text2: #8ba8cc;
-  --text3: #465f7a;
-  --text4: #2d4155;
+  --text: #e8f0fb;
+  --text2: #9dbadd;
+  --text3: #89acd1;
+  --text4: #5e80a1;
 
-  --accent:     #f97316;
-  --accent-dim: rgba(249,115,22,0.10);
-  --accent-glow:rgba(249,115,22,0.22);
-  --accent2:    #3b82f6;
-  --accent2-dim:rgba(59,130,246,0.10);
+  --accent: #f97316;
+  --accent-dim: rgba(249, 115, 22, 0.10);
+  --accent-glow: rgba(249, 115, 22, 0.22);
+  --accent2: #3b82f6;
+  --accent2-dim: rgba(59, 130, 246, 0.10);
 
-  --green:  #22c55e;
-  --red:    #ef4444;
+  --green: #22c55e;
+  --red: #ef4444;
   --yellow: #eab308;
   --purple: #a855f7;
 
-  --grid:      rgba(255,255,255,0.025);
+  --grid: rgba(255, 255, 255, 0.025);
   --scrollbar: #1a2d45;
 }
 
 /* ── Light theme ─────────────────────────────────── */
 [data-theme="light"] {
-  --bg:    #eef2f8;
-  --bg2:   #e5ecf5;
-  --bg3:   #dae4f0;
-  --card:  #ffffff;
+  --bg: #eef2f8;
+  --bg2: #e5ecf5;
+  --bg3: #dae4f0;
+  --card: #ffffff;
   --card2: #f6f9fd;
   --card3: #edf2fa;
 
-  --border:  rgba(0,0,0,0.065);
-  --border2: rgba(0,0,0,0.12);
-  --border3: rgba(0,0,0,0.20);
+  --border: rgba(0, 0, 0, 0.065);
+  --border2: rgba(0, 0, 0, 0.12);
+  --border3: rgba(0, 0, 0, 0.20);
 
-  --text:  #0c1e33;
-  --text2: #3a5570;
-  --text3: #7d9ab5;
-  --text4: #b0c4d8;
+  --text: #0c1e33;
+  --text2: #192938;
+  --text3: #254461;
+  --text4: #355472;
 
-  --accent:      #ea580c;
-  --accent-dim:  rgba(234,88,12,0.08);
-  --accent-glow: rgba(234,88,12,0.18);
-  --accent2:     #2563eb;
-  --accent2-dim: rgba(37,99,235,0.08);
+  --accent: #ea580c;
+  --accent-dim: rgba(234, 88, 12, 0.08);
+  --accent-glow: rgba(234, 88, 12, 0.18);
+  --accent2: #2563eb;
+  --accent2-dim: rgba(37, 99, 235, 0.08);
 
-  --green:  #16a34a;
-  --red:    #dc2626;
+  --green: #16a34a;
+  --red: #dc2626;
   --yellow: #ca8a04;
   --purple: #9333ea;
 
-  --grid:      rgba(0,0,0,0.035);
+  --grid: rgba(0, 0, 0, 0.035);
   --scrollbar: #c0d2e6;
 }
 
 /* ── Reset + base ─────────────────────────────────── */
-* { box-sizing: border-box; margin: 0; padding: 0; }
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
 
-html { scroll-behavior: smooth; }
+html {
+  scroll-behavior: smooth;
+}
 
 body {
   background: var(--bg);
@@ -100,7 +106,9 @@ body::before {
 body::after {
   content: '';
   position: fixed;
-  top: 0; left: 0; right: 0;
+  top: 0;
+  left: 0;
+  right: 0;
   height: 2px;
   background: linear-gradient(90deg, transparent, var(--accent), var(--accent2), transparent);
   z-index: 100;
@@ -108,9 +116,19 @@ body::after {
 }
 
 /* ── Scrollbar ─────────────────────────────────────── */
-::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 2px; }
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar);
+  border-radius: 2px;
+}
 
 /* ── Date picker overrides ─────────────────────────── */
 .date-input-small {
@@ -126,8 +144,11 @@ body::after {
   width: 88px;
   transition: border-color 0.15s;
 }
+
 .date-input-small:hover,
-.date-input-small:focus { border-color: var(--accent); }
+.date-input-small:focus {
+  border-color: var(--accent);
+}
 
 /* ── Plant select (themed dropdown list) ─────────── */
 .plant-select {
@@ -144,44 +165,124 @@ body::after {
   color: var(--text);
 }
 
-.react-datepicker { background: var(--card3) !important; border: 1px solid var(--border2) !important; border-radius: 12px !important; font-family: inherit !important; font-size: 12px !important; color: var(--text) !important; box-shadow: 0 16px 48px rgba(0,0,0,0.35) !important; }
-.react-datepicker__header { background: var(--card) !important; border-bottom: 1px solid var(--border) !important; border-radius: 12px 12px 0 0 !important; }
-.react-datepicker__current-month,.react-datepicker__day-name { color: var(--text) !important; }
-.react-datepicker__day { color: var(--text2) !important; border-radius: 6px !important; font-size: 11px !important; }
-.react-datepicker__day:hover { background: var(--accent-dim) !important; color: var(--accent) !important; }
-.react-datepicker__day--selected,.react-datepicker__day--range-start,.react-datepicker__day--range-end { background: var(--accent) !important; color: #fff !important; }
-.react-datepicker__day--in-range { background: var(--accent-dim) !important; }
-.react-datepicker__navigation-icon::before { border-color: var(--text2) !important; }
-.react-datepicker__triangle { display: none !important; }
-.react-datepicker-popper { z-index: 9999 !important; }
+.react-datepicker {
+  background: var(--card3) !important;
+  border: 1px solid var(--border2) !important;
+  border-radius: 12px !important;
+  font-family: inherit !important;
+  font-size: 12px !important;
+  color: var(--text) !important;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35) !important;
+}
+
+.react-datepicker__header {
+  background: var(--card) !important;
+  border-bottom: 1px solid var(--border) !important;
+  border-radius: 12px 12px 0 0 !important;
+}
+
+.react-datepicker__current-month,
+.react-datepicker__day-name {
+  color: var(--text) !important;
+}
+
+.react-datepicker__day {
+  color: var(--text2) !important;
+  border-radius: 6px !important;
+  font-size: 11px !important;
+}
+
+.react-datepicker__day:hover {
+  background: var(--accent-dim) !important;
+  color: var(--accent) !important;
+}
+
+.react-datepicker__day--selected,
+.react-datepicker__day--range-start,
+.react-datepicker__day--range-end {
+  background: var(--accent) !important;
+  color: #fff !important;
+}
+
+.react-datepicker__day--in-range {
+  background: var(--accent-dim) !important;
+}
+
+.react-datepicker__navigation-icon::before {
+  border-color: var(--text2) !important;
+}
+
+.react-datepicker__triangle {
+  display: none !important;
+}
+
+.react-datepicker-popper {
+  z-index: 9999 !important;
+}
 
 /* ── Recharts overrides ──────────────────────────────── */
-.recharts-tooltip-wrapper { outline: none !important; }
-.recharts-legend-item-text { color: var(--text2) !important; font-size: 11px !important; }
-.recharts-cartesian-axis-tick-value { fill: var(--text3) !important; font-size: 10px !important; }
+.recharts-tooltip-wrapper {
+  outline: none !important;
+}
+
+.recharts-legend-item-text {
+  color: var(--text2) !important;
+  font-size: 11px !important;
+}
+
+.recharts-cartesian-axis-tick-value {
+  fill: var(--text3) !important;
+  font-size: 10px !important;
+}
 
 /* ── Animations ──────────────────────────────────────── */
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(14px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes shimmer {
-  0%   { background-position: -400% 0; }
-  100% { background-position:  400% 0; }
-}
-@keyframes pulse-dot {
-  0%,100% { opacity: 1; }
-  50%      { opacity: 0.25; }
-}
-@keyframes spin-slow {
-  to { transform: rotate(360deg); }
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.fade-up { animation: fadeUp 0.4s cubic-bezier(.16,.84,.44,1) both; }
+@keyframes shimmer {
+  0% {
+    background-position: -400% 0;
+  }
+
+  100% {
+    background-position: 400% 0;
+  }
+}
+
+@keyframes pulse-dot {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@keyframes spin-slow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.fade-up {
+  animation: fadeUp 0.4s cubic-bezier(.16, .84, .44, 1) both;
+}
 
 .shimmer {
   background: linear-gradient(90deg,
-    var(--card) 20%, var(--card3) 50%, var(--card) 80%);
+      var(--card) 20%, var(--card3) 50%, var(--card) 80%);
   background-size: 400% 100%;
   animation: shimmer 1.6s ease infinite;
 }
@@ -195,4 +296,6 @@ body::after {
 }
 
 /* ── Utility ──────────────────────────────────────── */
-.font-display { font-family: 'Space Grotesk', 'DM Sans', system-ui, sans-serif; }
+.font-display {
+  font-family: 'Space Grotesk', 'DM Sans', system-ui, sans-serif;
+}

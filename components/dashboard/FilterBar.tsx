@@ -7,7 +7,7 @@ import { Sun, Moon, Zap, RefreshCw, ChevronDown, LogOut } from 'lucide-react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 
-const PLANTS: Plant[] = ['All Plants', 'BF1', 'BF2', 'Pellet1', 'Pellet2', 'Sinter1', 'Sinter2', 'SIP', 'LCP1234', 'LCP567' ,'COP1', 'COP2', 'HSM1', 'HSM2', 'BRM', 'SMS1', 'SMS2'];
+const PLANTS: Plant[] = ['All Plants', 'BF1', 'BF2', 'Pellet1', 'Pellet2', 'Sinter1', 'Sinter2', 'SIP', 'LCP1234', 'LCP567', 'COP1', 'COP2', 'HSM1', 'HSM2', 'BRM', 'SMS1', 'SMS2'];
 
 export default function FilterBar() {
   const { dateRange, plant, unit, theme, lastModified, isLoading, setDateRange, setPlant, setUnit, toggleTheme, setBundle, setLoading, setError } = useDashboardStore();
@@ -65,7 +65,7 @@ export default function FilterBar() {
 
   const preset = (days: number) => {
     const e = normalizeDate(new Date());
-    const s = new Date(e.getTime() - (days-1) * 86400000);
+    const s = new Date(e.getTime() - (days - 1) * 86400000);
     setDateRange([s, e]);
   };
 
@@ -75,19 +75,19 @@ export default function FilterBar() {
 
   return (
     <header className="relative z-20">
-      <div className="glass px-5 py-3 flex flex-wrap items-center gap-x-3 gap-y-3 justify-between"
+      <div className="glass px-5 py-3 flex flex-wrap items-center gap-x-3 gap-y-3 justify-center"
         style={{ borderColor: 'var(--border2)' }}>
 
         {/* JSW Logo */}
         <div className="flex items-center gap-2.5 mr-1">
-            <img
-              src={theme === 'dark' ? '/JSW_dark.png' : '/JSW_light.png'}
-              alt="JSW logo"
-              className="w-10 h-10 object-contain"
-            />
+          <img
+            src={theme === 'dark' ? '/JSW_dark.png' : '/JSW_light.png'}
+            alt="JSW logo"
+            className="w-10 h-10 object-contain"
+          />
           <div>
             <div className="font-display font-bold text-sm leading-none" style={{ color: 'var(--text)' }}>CO₂ Monitor</div>
-            <div className="text-[10px] mt-0.5" style={{ color: 'var(--text3)' }}>Steel Plant</div>
+            <div className="text-[10px] mt-0.5" style={{ color: 'var(--text3)' }}>Steel Plant Dolvi</div>
           </div>
         </div>
 
@@ -187,7 +187,7 @@ export default function FilterBar() {
         <div className="h-6 w-px hidden lg:block" style={{ background: 'var(--border2)' }} />
 
         {/* Unit */}
-        <div className="flex items-center gap-2">
+        <div className="relative group flex items-center gap-2">
           <Zap size={12} style={{ color: isAll ? 'var(--text4)' : 'var(--accent2)' }} />
           <div className="flex rounded-xl overflow-hidden text-xs"
             style={{ border: '1px solid var(--border2)', opacity: isAll ? 0.4 : 1, pointerEvents: isAll ? 'none' : 'auto' }}>
@@ -199,7 +199,12 @@ export default function FilterBar() {
               </button>
             ))}
           </div>
-          {isAll && <span className="text-[10px]" style={{ color: 'var(--text4)' }}>locked tCO₂/tCS</span>}
+          {isAll && (
+            <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 text-[10px] px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap"
+              style={{ background: 'rgba(0,0,0,0.85)', color: '#fff', border: '1px solid var(--border2)' }}>
+              locked tCO₂/tCS
+            </span>
+          )}
         </div>
 
         {/* <div className="flex-1" /> */}
