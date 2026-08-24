@@ -742,6 +742,7 @@ function ElaborateContent() {
                   }}
                   cursor={{ fill: "rgba(249,115,22,0.04)" }}
                 />
+                <ReferenceLine x={0} stroke="var(--border2)" />
                 <Bar dataKey="value" radius={[0, 5, 5, 0]} maxBarSize={22}>
                   {subBar.map((_, i) => (
                     <Cell key={i} fill={SUBCAT_C[i % SUBCAT_C.length]} />
@@ -790,7 +791,8 @@ function ElaborateContent() {
                 <Tooltip
                   content={({ active, payload }) => {
                     if (!active || !payload?.length) return null;
-                    const total = pieCat.reduce((s, d) => s + d.value, 0);
+                    const emittersTotal = pieCat.filter(d => d.value > 0).reduce((s, d) => s + d.value, 0);
+                    const divisor = emittersTotal > 0 ? emittersTotal : 1;
                     return (
                       <div
                         className="rounded-xl border px-3 py-2 text-xs"
@@ -806,16 +808,17 @@ function ElaborateContent() {
                           {fmt(payload[0]?.value as number, 0)} tCO₂
                         </div>
                         <div style={{ color: "var(--text3)" }}>
-                          {((Number(payload[0]?.value) / total) * 100).toFixed(
+                          {((Number(payload[0]?.value) / divisor) * 100).toFixed(
                             1,
                           )}
-                          % of total
+                          % of emitters
                         </div>
                       </div>
                     );
                   }}
                   cursor={{ fill: "rgba(249,115,22,0.04)" }}
                 />
+                <ReferenceLine y={0} stroke="var(--border2)" />
                 <Bar
                   dataKey="value"
                   name="tCO₂"

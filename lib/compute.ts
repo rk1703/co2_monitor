@@ -78,17 +78,17 @@ export function computePlantBar(b: DataBundle, start: Date, end: Date): BarItem[
 }
 
 export function computeSubCategoryBar(b: DataBundle, start: Date, end: Date, plant: Plant, unit: EmissionUnit): BarItem[] {
-  const cons = b.emissions.filter(r => r.type === 'CONSUMPTION' && r.absoluteCO2 > 0 && inRange(r.date, start, end) && matchPlant(r.plant, plant));
+  const filterEmissions = b.emissions.filter(r => inRange(r.date, start, end) && matchPlant(r.plant, plant));
   const prod = b.products.filter(r => inRange(r.date, start, end) && matchPlant(r.plant, plant)).reduce((s, r) => s + r.qty, 0);
   const cs   = b.cs.filter(r => inRange(r.date, start, end)).reduce((s, r) => s + r.qty, 0);
   const denom = unit === 'per_product' ? prod : cs;
 
   const map = new Map<string, number>();
-  cons.forEach(r => map.set(r.subCategory, (map.get(r.subCategory) || 0) + r.absoluteCO2));
+  filterEmissions.forEach(r => map.set(r.subCategory, (map.get(r.subCategory) || 0) + r.absoluteCO2));
 
   return Array.from(map.entries())
     .map(([name, co2]) => ({ name, value: denom > 0 ? Math.round((co2 / denom) * 100000) / 100000 : 0, unit: unit === 'per_product' ? 'tCO₂/tP' : 'tCO₂/tCS' }))
-    .filter(x => x.value > 1e-7)
+    .filter(x => Math.abs(x.value) > 1e-7)
     .sort((a, b) => b.value - a.value);
 }
 
@@ -135,7 +135,7 @@ export function computePieData(
 ): PieSlice[] {
   const map = new Map<string, number>();
   b.emissions
-    .filter(r => r.type === 'CONSUMPTION' && r.absoluteCO2 > 0 && inRange(r.date, start, end) && matchPlant(r.plant, plant))
+    .filter(r => inRange(r.date, start, end) && matchPlant(r.plant, plant))
     .forEach(r => { const k = view === 'category' ? r.category : r.subCategory; map.set(k, (map.get(k) || 0) + r.absoluteCO2); });
 
   const prod = b.products
@@ -153,6 +153,7 @@ export function computePieData(
       fill: pieColorFor(name),
       intensity: denom > 0 ? Math.round((value / denom) * 100000) / 100000 : 0,
     }))
+    .filter(x => Math.abs(x.value) > 1e-7)
     .sort((a, b) => b.value - a.value);
 }
 

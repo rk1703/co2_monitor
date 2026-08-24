@@ -1,5 +1,5 @@
 'use client';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList, ReferenceLine } from 'recharts';
 import { BarItem, Plant, EmissionUnit } from '@/types';
 import { ChartSkeleton } from '@/components/ui/Skeleton';
 
@@ -9,7 +9,7 @@ const PLANT_C = [
   '#14b8a6', '#8b5cf6', '#f59e0b', '#10b981',
   '#3b82f6', '#f43f5e', '#84cc16', '#64748b',
 ];
-const SUB_C = ['#f97316','#3b82f6','#22c55e','#a855f7','#eab308','#06b6d4','#ef4444','#ec4899','#14b8a6','#8b5cf6','#f59e0b','#10b981'];
+const SUB_C = ['#f97316', '#3b82f6', '#22c55e', '#a855f7', '#eab308', '#06b6d4', '#ef4444', '#ec4899', '#14b8a6', '#8b5cf6', '#f59e0b', '#10b981'];
 
 function Tip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
@@ -23,13 +23,25 @@ function Tip({ active, payload, label }: any) {
   );
 }
 
+function CustomLabel(props: any) {
+  const { x, y, width, height, value } = props;
+  if (value === undefined || value === null) return null;
+  const isPositive = value >= 0;
+  const labelY = isPositive ? y - 6 : y + 15;
+  return (
+    <text x={x + width / 2} y={labelY} fill="var(--text3)" fontSize={9} textAnchor="middle">
+      {value.toFixed(3)}
+    </text>
+  );
+}
+
 export default function BarChartPanel({ data, plant, unit, loading }: {
   data: BarItem[]; plant: Plant; unit: EmissionUnit; loading: boolean;
 }) {
-  const isAll   = plant === 'All Plants';
-  const uLabel  = isAll ? 'tCO₂/tCS' : unit === 'per_product' ? 'tCO₂/tP' : 'tCO₂/tCS';
-  const title   = isAll ? 'Plant CO₂ Intensity — Descending' : `Subcategory Breakdown — ${plant}`;
-  const angled  = data.length > 5;
+  const isAll = plant === 'All Plants';
+  const uLabel = isAll ? 'tCO₂/tCS' : unit === 'per_product' ? 'tCO₂/tP' : 'tCO₂/tCS';
+  const title = isAll ? 'Plant CO₂ Intensity — Descending' : `Subcategory Breakdown — ${plant}`;
+  const angled = data.length > 5;
 
   if (loading) return <ChartSkeleton height={420} />;
   if (!data.length) return (
@@ -56,12 +68,12 @@ export default function BarChartPanel({ data, plant, unit, loading }: {
           <YAxis tick={{ fill: 'var(--text3)', fontSize: 10 }} axisLine={false} tickLine={false}
             tickFormatter={v => v.toFixed(3)} />
           <Tooltip content={<Tip />} cursor={{ fill: 'rgba(249,115,22,0.05)' }} />
+          <ReferenceLine y={0} stroke="var(--border2)" />
           <Bar dataKey="value" name={uLabel} radius={[6, 6, 0, 0]} maxBarSize={56}>
             {data.map((entry, i) => (
               <Cell key={i} fill={isAll ? PLANT_C[i % PLANT_C.length] : SUB_C[i % SUB_C.length]} />
             ))}
-            <LabelList dataKey="value" position="top" style={{ fill: 'var(--text3)', fontSize: 9 }}
-              formatter={(v: number) => v.toFixed(3)} />
+            <LabelList dataKey="value" content={<CustomLabel />} />
           </Bar>
         </BarChart>
       </ResponsiveContainer>
