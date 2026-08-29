@@ -71,35 +71,8 @@ export async function isIPRateLimited(ip: string): Promise<boolean> {
  * Check if username is locked out
  */
 export async function isUsernameLocked(username: string): Promise<boolean> {
-  try {
-    const pool = await getPool();
-    const result = await pool.request()
-      .input('username', sql.NVarChar(150), username)
-      .query('SELECT ATTEMPT_COUNT, LAST_ATTEMPT_TIME, LOCKED_UNTIL FROM AUTH_ATTEMPTS WHERE TARGET_KEY = @username');
-
-    if (result.recordset.length === 0) return false;
-
-    const record = result.recordset[0];
-    const now = Date.now();
-
-    // Check if currently locked
-    if (record.LOCKED_UNTIL && now < new Date(record.LOCKED_UNTIL).getTime()) {
-      return true;
-    }
-
-    // Check if outside window (reset)
-    if (now - new Date(record.LAST_ATTEMPT_TIME).getTime() > CONFIG.USERNAME_WINDOW_MS) {
-      await pool.request()
-        .input('username', sql.NVarChar(150), username)
-        .query('DELETE FROM AUTH_ATTEMPTS WHERE TARGET_KEY = @username');
-      return false;
-    }
-
-    return false;
-  } catch (err) {
-    console.error('[AUTH SECURITY] Error checking username lockout:', err);
-    return false;
-  }
+  // Username lockout has been disabled per user request (only IP lockout is enforced)
+  return false;
 }
 
 /**
@@ -167,10 +140,8 @@ async function recordKeyFailedAttempt(key: string, maxAttempts: number, windowMs
  * Record failed login attempt for both IP and username
  */
 export async function recordFailedAttempt(ip: string, username: string): Promise<void> {
-  await Promise.all([
-    recordKeyFailedAttempt(ip, CONFIG.IP_MAX_ATTEMPTS, CONFIG.IP_WINDOW_MS, CONFIG.IP_LOCKOUT_MS),
-    recordKeyFailedAttempt(username, CONFIG.USERNAME_MAX_ATTEMPTS, CONFIG.USERNAME_WINDOW_MS, CONFIG.USERNAME_LOCKOUT_MS),
-  ]);
+  // Only record failed attempt for IP to prevent username blocking/denial of service
+  await recordKeyFailedAttempt(ip, CONFIG.IP_MAX_ATTEMPTS, CONFIG.IP_WINDOW_MS, CONFIG.IP_LOCKOUT_MS);
 }
 
 /**
