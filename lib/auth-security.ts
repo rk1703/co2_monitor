@@ -11,7 +11,12 @@ import { getPool } from '@/lib/db';
  * Note: Database-backed storage is used to support serverless and containerized scaling.
  */
 
-// Configuration
+// Feature flag: Disabled by default for corporate intranet/LAN environments to prevent
+// collateral lockouts across shared proxies, VPNs, and internal gateways.
+// Can be re-enabled by setting ENABLE_AUTH_RATE_LIMITING=true in .env
+const ENABLE_RATE_LIMITING = process.env.ENABLE_AUTH_RATE_LIMITING === 'true';
+
+// Configuration (active only if ENABLE_AUTH_RATE_LIMITING=true)
 const CONFIG = {
   IP_MAX_ATTEMPTS: 10,           // Max attempts per IP before temporary block
   IP_WINDOW_MS: 15 * 60 * 1000,  // 15 minute window for IP attempts
@@ -35,6 +40,10 @@ export function getClientIP(req: Request): string {
  * Check if IP is rate limited
  */
 export async function isIPRateLimited(ip: string): Promise<boolean> {
+  if (!ENABLE_RATE_LIMITING) {
+    return false;
+  }
+
   try {
     const pool = await getPool();
     const result = await pool.request()
@@ -71,7 +80,7 @@ export async function isIPRateLimited(ip: string): Promise<boolean> {
  * Check if username is locked out
  */
 export async function isUsernameLocked(username: string): Promise<boolean> {
-  // Username lockout has been disabled per user request (only IP lockout is enforced)
+  // Username lockout is delegated to corporate Active Directory / LDAP policies
   return false;
 }
 
@@ -79,6 +88,8 @@ export async function isUsernameLocked(username: string): Promise<boolean> {
  * Record a failed login attempt for a specific target key (IP or username)
  */
 async function recordKeyFailedAttempt(key: string, maxAttempts: number, windowMs: number, lockoutMs: number): Promise<void> {
+  if (!ENABLE_RATE_LIMITING) return;
+
   try {
     const pool = await getPool();
     const now = new Date();
@@ -140,7 +151,7 @@ async function recordKeyFailedAttempt(key: string, maxAttempts: number, windowMs
  * Record failed login attempt for both IP and username
  */
 export async function recordFailedAttempt(ip: string, username: string): Promise<void> {
-  // Only record failed attempt for IP to prevent username blocking/denial of service
+  if (!ENABLE_RATE_LIMITING) return;
   await recordKeyFailedAttempt(ip, CONFIG.IP_MAX_ATTEMPTS, CONFIG.IP_WINDOW_MS, CONFIG.IP_LOCKOUT_MS);
 }
 
@@ -148,6 +159,7 @@ export async function recordFailedAttempt(ip: string, username: string): Promise
  * Clear failed attempts on successful login
  */
 export async function clearFailedAttempts(ip: string, username: string): Promise<void> {
+  if (!ENABLE_RATE_LIMITING) return;
   try {
     const pool = await getPool();
     await pool.request()
@@ -163,6 +175,13 @@ export async function clearFailedAttempts(ip: string, username: string): Promise
  * Get current attempt counts (for debugging/monitoring)
  */
 export async function getAttemptStats(ip: string, username: string) {
+  if (!ENABLE_RATE_LIMITING) {
+    return {
+      ip: { attempts: 0, locked: false },
+      username: { attempts: 0, locked: false },
+    };
+  }
+
   try {
     const pool = await getPool();
     const ipRes = await pool.request()
@@ -202,6 +221,7 @@ export async function getAttemptStats(ip: string, username: string) {
  * Cleanup old records (prevent database creep)
  */
 export async function cleanupOldRecords(): Promise<void> {
+  if (!ENABLE_RATE_LIMITING) return;
   try {
     const pool = await getPool();
     const maxAgeMs = Math.max(CONFIG.IP_WINDOW_MS, CONFIG.USERNAME_WINDOW_MS);
@@ -215,8 +235,8 @@ export async function cleanupOldRecords(): Promise<void> {
   }
 }
 
-// Cleanup every 10 minutes
-if (typeof setInterval !== 'undefined') {
+// Cleanup every 10 minutes (only active if rate limiting is enabled)
+if (ENABLE_RATE_LIMITING && typeof setInterval !== 'undefined') {
   setInterval(() => {
     cleanupOldRecords().catch(err => console.error('[AUTH SECURITY] Interval cleanup error:', err));
   }, 10 * 60 * 1000);
