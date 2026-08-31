@@ -8,21 +8,38 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const { setBundle, setError, setLoading } = useDashboardStore();
   const updateCheckRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const refreshRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const currentEtagRef = useRef<string | null>(null);
+  const lastRangeKeyRef = useRef<string>('');
 
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
 
-    const { dateRange: currentRange, lastModified } = useDashboardStore.getState();
+    const { dateRange: currentRange } = useDashboardStore.getState();
     const [start, end] = currentRange;
+    const startStr = format(start, 'yyyy-MM-dd');
+    const endStr = format(end, 'yyyy-MM-dd');
+    const rangeKey = `${startStr}|${endStr}`;
+
+    // Reset ETag when user changes date range to ensure new data is fetched
+    if (lastRangeKeyRef.current !== rangeKey) {
+      currentEtagRef.current = null;
+      lastRangeKeyRef.current = rangeKey;
+    }
+
     const params = new URLSearchParams({
-      start: format(start, 'yyyy-MM-dd'),
-      end: format(end, 'yyyy-MM-dd'),
+      start: startStr,
+      end: endStr,
     });
 
     try {
+      const headers: Record<string, string> = {};
+      if (currentEtagRef.current) {
+        headers['If-None-Match'] = currentEtagRef.current;
+      }
+
       const res = await fetch(`/api/data?${params.toString()}`, {
         cache: 'no-store',
-        headers: lastModified ? { 'If-Modified-Since': new Date(lastModified).toUTCString() } : undefined,
+        headers,
       });
 
       if (res.status === 304) {
@@ -31,6 +48,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const etag = res.headers.get('ETag');
+      if (etag) currentEtagRef.current = etag;
+
       const bundle = await res.json();
       if (bundle.error) throw new Error(bundle.error);
 

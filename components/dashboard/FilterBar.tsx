@@ -40,20 +40,14 @@ export default function FilterBar() {
     try {
       const res = await fetch(`/api/data?${params.toString()}`, {
         cache: 'no-store',
-        headers: lastModified ? { 'If-Modified-Since': new Date(lastModified).toUTCString() } : undefined,
       });
-
-      if (res.status === 304) {
-        setLoading(false);
-        return;
-      }
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const bundle = await res.json();
       if (bundle.error) throw new Error(bundle.error);
       setBundle(bundle);
     } catch (e: any) { setError(e?.message); }
-  }, [setBundle, setLoading, setError, start, end, lastModified]);
+  }, [setBundle, setLoading, setError, start, end]);
 
   const logout = useCallback(async () => {
     try {
