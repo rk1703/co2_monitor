@@ -117,12 +117,11 @@ export async function POST(req: NextRequest) {
     const client = new Client({
       url,
       tlsOptions,
+      timeout: 10000,
+      connectTimeout: 10000,
     });
 
     try {
-      await client.bind('', '');
-      console.log('[LOGIN] Connected to LDAP server');
-
       if (LDAP_BIND_DN && LDAP_BIND_PW) {
         // Service account bind to search for user
         console.log('[LOGIN] Attempting service account bind...');
@@ -131,40 +130,29 @@ export async function POST(req: NextRequest) {
         const userDN = await searchUserDN(client, LDAP_BASE_DN, username);
         console.log('[LOGIN] Found user DN, attempting user bind...');
 
-        // Unbind and reconnect as the user
+        // Unbind service account client
         await client.unbind();
         
         const userClient = new Client({
           url,
           tlsOptions,
+          timeout: 10000,
+          connectTimeout: 10000,
         });
 
-        await userClient.bind('', '');
         await userClient.bind(userDN, password);
         await userClient.unbind();
       } else {
-        // No service account — try direct UPN bind
+        // No service account — direct UPN bind
         if (!LDAP_DOMAIN) {
-          throw new Error('LDAP_BIND_DN/PW missing and LDAP_DOMAIN unknown');
+          throw new Error('LDAP_DOMAIN is missing in environment configuration');
         }
-        const userUPN = `${username}@${LDAP_DOMAIN}`;
-        console.log('[LOGIN] Using UPN bind for user:', userUPN);
-        
-        const userClient = new Client({
-          url,
-          tlsOptions,
-        });
-
-        console.log('[LOGIN] Connecting to LDAP with anonymous bind...');
-        await userClient.bind('', '');
-        console.log('[LOGIN] Anonymous bind successful, attempting user bind with UPN...');
-        await userClient.bind(userUPN, password);
-        console.log('[LOGIN] UPN bind successful for:', userUPN);
-        await userClient.unbind();
-        await userClient.unbind();
+        const userUPN = username.includes('@') ? username : `${username}@${LDAP_DOMAIN}`;
+        console.log('[LOGIN] Attempting direct UPN bind for:', userUPN);
+        await client.bind(userUPN, password);
+        console.log('[LOGIN] Direct UPN bind successful for:', userUPN);
+        await client.unbind();
       }
-
-      await client.unbind();
     } catch (e: any) {
       try {
         await client.unbind();
@@ -180,20 +168,29 @@ export async function POST(req: NextRequest) {
     try {
       await attemptAuth(LDAP_URL);
     } catch (e: any) {
-      // If connection reset, try LDAPS fallback
       const msg = String(e?.message || e);
-      const isConnReset = 
+      const isConnIssue = 
         e?.code === 'ECONNRESET' || 
+        e?.code === 'ETIMEDOUT' ||
+        e?.code === 'ECONNREFUSED' ||
         msg.includes('ECONNRESET') || 
-        msg.includes('read ECONNRESET') ||
-        msg.includes('socket hang up');
+        msg.includes('ETIMEDOUT') ||
+        msg.includes('ECONNREFUSED') ||
+        msg.includes('socket hang up') ||
+        msg.includes('timeout');
 
-      if (isConnReset && LDAP_URL.startsWith('ldap://')) {
+      if (isConnIssue && LDAP_URL.startsWith('ldap://')) {
         const hostPort = LDAP_URL.replace(/^ldap:\/\//, '');
         const hostOnly = hostPort.split(':')[0];
         const ldapsUrl = `ldaps://${hostOnly}:636`;
-        console.warn('[LOGIN] Connection reset, retrying with LDAPS...');
+        console.warn('[LOGIN] LDAP connection failed, retrying with LDAPS (636)...');
         await attemptAuth(ldapsUrl);
+      } else if (isConnIssue && LDAP_URL.startsWith('ldaps://')) {
+        const hostPort = LDAP_URL.replace(/^ldaps:\/\//, '');
+        const hostOnly = hostPort.split(':')[0];
+        const plainLdapUrl = `ldap://${hostOnly}:389`;
+        console.warn('[LOGIN] LDAPS (636) connection failed, retrying with LDAP (389)...');
+        await attemptAuth(plainLdapUrl);
       } else {
         throw e;
       }
